@@ -3,6 +3,7 @@
 #include "alvr_server/Logger.h"
 #include "alvr_server/Settings.h"
 #include "alvr_server/bindings.h"
+#include <fstream>
 
 extern uint64_t g_DriverTestMode;
 
@@ -318,8 +319,26 @@ bool FrameRender::Startup()
 }
 
 
-bool FrameRender::RenderFrame(ID3D11Texture2D *pTexture[][2], vr::VRTextureBounds_t bounds[][2], int layerCount, bool recentering, const std::string &message, const std::string& debugText)
+bool FrameRender::RenderFrame(HANDLE pTextureHandles[][2], vr::VRTextureBounds_t bounds[][2], int layerCount, bool recentering, const std::string &message, const std::string& debugText)
 {
+	// Open texture resources
+	ID3D11Texture2D *pTexture[10][2];
+	for(int i = 0; i < layerCount; i++) {
+		pTexture[i][0] = m_pD3DRender->GetSharedTexture(pTextureHandles[i][0]);
+		if(pTexture[i][0] == NULL) {
+			Debug("Failed to open texture %d/0", i);
+			return false;
+		}
+		Debug("Successfully opened texture %d/0", i);
+		//hr = m_pD3DRender->GetDevice()->OpenSharedResource(pTextureHandles[i][1], __uuidof(ID3D11Texture2D), (void**)(pTexture[i][1]));
+		pTexture[i][1] = m_pD3DRender->GetSharedTexture(pTextureHandles[i][1]);
+		if(pTexture[i][1] == NULL) {
+			Debug("Failed to open texture %d/1", i);
+			return false;
+		}
+		Debug("Successfully opened texture %d/1", i);
+	}
+
 	// Set render target
 	m_pD3DRender->GetContext()->OMSetRenderTargets(1, m_pRenderTargetView.GetAddressOf(), m_pDepthStencilView.Get());
 
@@ -343,8 +362,8 @@ bool FrameRender::RenderFrame(ID3D11Texture2D *pTexture[][2], vr::VRTextureBound
 		layerCount++;
 	}
 
+	ID3D11Texture2D *textures[2];
 	for (int i = 0; i < layerCount; i++) {
-		ID3D11Texture2D *textures[2];
 		vr::VRTextureBounds_t bound[2];
 
 		if (i == recenterLayer) {
@@ -379,6 +398,7 @@ bool FrameRender::RenderFrame(ID3D11Texture2D *pTexture[][2], vr::VRTextureBound
 
 		ComPtr<ID3D11ShaderResourceView> pShaderResourceView[2];
 
+		Debug("Tex pointer: %p", textures[0]);
 		HRESULT hr = m_pD3DRender->GetDevice()->CreateShaderResourceView(textures[0], &SRVDesc, pShaderResourceView[0].ReleaseAndGetAddressOf());
 		if (FAILED(hr)) {
 			Error("CreateShaderResourceView %p %ls\n", hr, GetErrorStr(hr).c_str());
@@ -472,6 +492,8 @@ bool FrameRender::RenderFrame(ID3D11Texture2D *pTexture[][2], vr::VRTextureBound
 	if (enableFFR) {
 		m_ffr->Render();
 	}
+
+	
 
 	m_pD3DRender->GetContext()->Flush();
 

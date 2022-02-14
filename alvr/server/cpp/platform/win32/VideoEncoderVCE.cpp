@@ -1,5 +1,6 @@
 #include "VideoEncoderVCE.h"
 
+//#include <d3d11.h>
 #include "alvr_server/Statistics.h"
 #include "alvr_server/Logger.h"
 #include "alvr_server/Settings.h"
@@ -322,6 +323,84 @@ void VideoEncoderVCE::Transmit(ID3D11Texture2D *pTexture, uint64_t presentationT
 
 	Debug("Submit surface. frameIndex=%llu\n", frameIndex);
 	m_converter->Submit(surface);
+
+	// Debug: Save texture to file to figure out if it's working
+	/*if(frameIndex > m_currFrame + 2500) {
+		m_currFrame = frameIndex;
+		std::string filename = "C:\\Users\\ricjs\\Desktop\\TexDump_" + std::to_string(frameIndex) + ".ppm"; 
+		Debug("Dumping texture to file %s", filename.c_str());
+		D3D11_TEXTURE2D_DESC descIn, descOut;
+		ID3D11Device* d3dDevice;
+		pTexture->GetDevice(&d3dDevice);
+		ID3D11DeviceContext* d3dContext = m_d3dRender->GetContext();
+
+
+   		pTexture->GetDesc(&descIn);
+		descOut.Width = descIn.Width;
+		descOut.Height = descIn.Height;
+		descOut.MipLevels = descIn.MipLevels;
+		descOut.ArraySize = descIn.ArraySize;
+		descOut.Format = descIn.Format;
+		descOut.SampleDesc = descIn.SampleDesc;
+		descOut.Usage = D3D11_USAGE_STAGING;
+		descOut.BindFlags = 0;
+		descOut.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+		descOut.MiscFlags = 0;
+		Debug("Format is %d", descOut.Format);
+
+		ID3D11Texture2D * textureOut;
+		HRESULT hr = d3dDevice->CreateTexture2D(&descOut, nullptr, &textureOut);
+		if (FAILED(hr)) {
+			Warn("Failed to create staging texture");
+			return;
+		}
+		Debug("Success in creating staging texture");
+
+		// copy the texture to a staging resource
+		d3dContext->CopyResource(textureOut, pTexture);
+
+		// now, map the staging resource
+		D3D11_MAPPED_SUBRESOURCE mapInfo;
+		hr = d3dContext->Map(
+				textureOut,
+				0,
+				D3D11_MAP_READ,
+				0,
+				&mapInfo);
+		if (FAILED(hr)) {
+			Warn("Failed to map staging texture");
+			return;
+		}
+		Debug("Success in mapping staging texture");
+
+		//std::vector
+
+		
+		// stb_image doesnt work, ppm raw bitches
+		std::ofstream ofs;
+		ofs.open(filename.c_str());
+		Debug("Success in opening output file");
+		ofs << "P3\n";
+		int width = descOut.Width, height = descOut.Height;
+		ofs << width << " " << height << "\n255\n";
+		Debug("Success in writing metadata, width=%d, height=%d", width, height);
+
+		for(int y = 0; y < height; y++) {
+			for(int x = 0; x < width; x++) {
+				for(int c = 0; c < 3; c++) {
+					ofs << (int)(((unsigned char*)mapInfo.pData)[y*height*4 + x*4+c]) << " ";
+				}
+			}
+			ofs << "\n";
+			ofs.flush();
+		}
+		ofs.close();
+
+		Debug("Success in dumping texture file %s", filename.c_str());
+
+		d3dContext->Unmap(textureOut, 0);
+	}*/
+
 }
 
 void VideoEncoderVCE::Receive(amf::AMFData *data)

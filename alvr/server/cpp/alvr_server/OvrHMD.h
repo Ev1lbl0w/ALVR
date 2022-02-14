@@ -91,7 +91,7 @@ private:
 	std::wstring m_adapterName;
 
 #ifdef _WIN32
-	std::shared_ptr<CD3DRender> m_D3DRender;
+	std::shared_ptr<CD3DRender> m_D3DRender, m_D3DDedicatedRender;
 #endif
 	std::shared_ptr<CEncoder> m_encoder;
 	std::shared_ptr<VSyncThread> m_VSyncThread;

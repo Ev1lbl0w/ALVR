@@ -1,7 +1,8 @@
 #include "OvrDirectModeComponent.h"
 
-OvrDirectModeComponent::OvrDirectModeComponent(std::shared_ptr<CD3DRender> pD3DRender, std::shared_ptr<PoseHistory> poseHistory)
+OvrDirectModeComponent::OvrDirectModeComponent(std::shared_ptr<CD3DRender> pD3DRender, std::shared_ptr<CD3DRender> pD3DIntegratedRender, std::shared_ptr<PoseHistory> poseHistory)
 	: m_pD3DRender(pD3DRender)
+	, m_pD3DIRender(pD3DIntegratedRender)
 	, m_poseHistory(poseHistory)
 	, m_submitLayer(0)
 {
@@ -36,27 +37,33 @@ void OvrDirectModeComponent::CreateSwapTextureSet(uint32_t unPid, const SwapText
 	//SharedTextureDesc.MiscFlags = D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX | D3D11_RESOURCE_MISC_SHARED_NTHANDLE;
 	SharedTextureDesc.MiscFlags = D3D11_RESOURCE_MISC_SHARED;
 
-	ProcessResource *processResource = new ProcessResource();
-	processResource->pid = unPid;
+	ProcessResource *processResource = new ProcessResource(), *processResourceI = new ProcessResource();
+	processResource->pid = processResourceI->pid = unPid;
 
 	for (int i = 0; i < 3; i++) {
 		HRESULT hr = m_pD3DRender->GetDevice()->CreateTexture2D(&SharedTextureDesc, NULL, &processResource->textures[i]);
+		hr = m_pD3DIRender->GetDevice()->CreateTexture2D(&SharedTextureDesc, NULL, &processResourceI->textures[i]);
 		//LogDriver("texture%d %p res:%d %s", i, texture[i], hr, GetDxErrorStr(hr).c_str());
 
-		IDXGIResource* pResource;
+		IDXGIResource* pResource, *pResourceI;
 		hr = processResource->textures[i]->QueryInterface(__uuidof(IDXGIResource), (void**)&pResource);
+		hr = processResourceI->textures[i]->QueryInterface(__uuidof(IDXGIResource), (void**)&pResourceI);
 		//LogDriver("QueryInterface %p res:%d %s", pResource, hr, GetDxErrorStr(hr).c_str());
 
 		hr = pResource->GetSharedHandle(&processResource->sharedHandles[i]);
+		hr = pResourceI->GetSharedHandle(&processResourceI->sharedHandles[i]);
 		//LogDriver("GetSharedHandle %p res:%d %s", processResource->sharedHandles[i], hr, GetDxErrorStr(hr).c_str());
 
 		m_handleMap.insert(std::make_pair(processResource->sharedHandles[i], std::make_pair(processResource, i)));
+		m_handleMapI.push_back(std::make_pair(processResourceI, i));
 
 		pOutSwapTextureSet->rSharedTextureHandles[i] = (vr::SharedTextureHandle_t)processResource->sharedHandles[i];
 
 		pResource->Release();
+		pResourceI->Release();
 
 		Debug("Created Texture %d %p\n", i, processResource->sharedHandles[i]);
+		Debug("Created Integrated Texture %d %p\n", i, processResourceI->sharedHandles[i]);
 	}
 	//m_processMap.insert(std::pair<uint32_t, ProcessResource *>(unPid, processResource));
 }
@@ -78,6 +85,7 @@ void OvrDirectModeComponent::DestroySwapTextureSet(vr::SharedTextureHandle_t sha
 	else {
 		Debug("Requested to destroy not managing texture. handle:%p\n", sharedTextureHandle);
 	}
+	m_handleMapI.clear();
 }
 
 /** Used to purge all texture sets for a given process. */
@@ -96,6 +104,7 @@ void OvrDirectModeComponent::DestroyAllSwapTextureSets(uint32_t unPid)
 			++it;
 		}
 	}
+	m_handleMapI.clear();
 }
 
 /** After Present returns, calls this to get the next index to use for rendering. */
@@ -235,8 +244,7 @@ void OvrDirectModeComponent::CopyTexture(uint32_t layerCount) {
 
 	uint64_t presentationTime = GetTimestampUs();
 
-	ID3D11Texture2D *pTexture[MAX_LAYERS][2];
-	ComPtr<ID3D11Texture2D> Texture[MAX_LAYERS][2];
+	HANDLE pTexture[MAX_LAYERS][2];
 	vr::VRTextureBounds_t bounds[MAX_LAYERS][2];
 
 	for (uint32_t i = 0; i < layerCount; i++) {
@@ -248,11 +256,18 @@ void OvrDirectModeComponent::CopyTexture(uint32_t layerCount) {
 			Debug("Submitted texture is not found on HandleMap. eye=right layer=%d/%d Texture Handle=%p\n", i, layerCount, leftEyeTexture);
 		}
 		else {
-			Texture[i][0] = it->second.first->textures[it->second.second];
+			pTexture[i][0] = it->first;
+			//int idx = it->second.second;
+			//Debug("Idx: %d", idx);
+			//Debug(" m_handleMapI.at(i): %p",  &(m_handleMapI.at(i)));
+			//Debug(" m_handleMapI.at(i).first: %p",  m_handleMapI.at(i).first);
+			//Debug(" m_handleMapI.at(i).first->textures: %p",  m_handleMapI.at(i).first->textures);
+			//Debug(" m_handleMapI.at(i).first->textures[idx]: %p",  m_handleMapI.at(i).first->textures[idx]);
+			//Texture[i][0] = m_handleMapI.at(i).first->textures[idx];
 			D3D11_TEXTURE2D_DESC desc;
-			Texture[i][0]->GetDesc(&desc);
+			//(it->second.first->textures[it->second.second])->GetDesc(&desc);
 
-			Debug("CopyTexture: layer=%d/%d pid=%d Texture Size=%dx%d Format=%d\n", i, layerCount, it->second.first->pid, desc.Width, desc.Height, desc.Format);
+			//Debug("CopyTexture: layer=%d/%d pid=%d Texture Size=%dx%d Format=%d\n", i, layerCount, it->second.first->pid, desc.Width, desc.Height, desc.Format);
 
 			// Find right eye texture.
 			HANDLE rightEyeTexture = (HANDLE)m_submitLayers[i][1].hTexture;
@@ -260,18 +275,88 @@ void OvrDirectModeComponent::CopyTexture(uint32_t layerCount) {
 			if (it == m_handleMap.end()) {
 				// Ignore this layer
 				Debug("Submitted texture is not found on HandleMap. eye=left layer=%d/%d Texture Handle=%p\n", i, layerCount, rightEyeTexture);
-				Texture[i][0].Reset();
 			}
 			else {
-				Texture[i][1] = it->second.first->textures[it->second.second];
+				pTexture[i][1] = it->first;
+				//int idx = it->second.second;
+				//Texture[i][1] = m_handleMapI.at(i).first->textures[idx];
 			}
 		}
 
-		pTexture[i][0] = Texture[i][0].Get();
-		pTexture[i][1] = Texture[i][1].Get();
 		bounds[i][0] = m_submitLayers[i][0].bounds;
 		bounds[i][1] = m_submitLayers[i][1].bounds;
 	}
+
+	/*counter++;
+	if(counter % 1500 == 0 && tex) {
+		std::string filename = "C:\\Users\\ricjs\\Desktop\\TexDumpFrameRender_" + std::to_string(counter) + ".ppm"; 
+		Debug("Dumping texture to file %s", filename.c_str());
+		D3D11_TEXTURE2D_DESC descIn, descOut;
+		ID3D11Device* d3dDevice = m_pD3DRender->GetDevice();
+		ID3D11DeviceContext* d3dContext = m_pD3DRender->GetContext();
+
+   		tex->GetDesc(&descIn);
+		descOut.Width = descIn.Width;
+		descOut.Height = descIn.Height;
+		descOut.MipLevels = descIn.MipLevels;
+		descOut.ArraySize = descIn.ArraySize;
+		descOut.Format = descIn.Format;
+		descOut.SampleDesc = descIn.SampleDesc;
+		descOut.Usage = D3D11_USAGE_STAGING;
+		descOut.BindFlags = 0;
+		descOut.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+		descOut.MiscFlags = 0;
+
+		ID3D11Texture2D * textureOut;
+		HRESULT hr = d3dDevice->CreateTexture2D(&descOut, nullptr, &textureOut);
+		if (FAILED(hr)) {
+			Warn("Failed to create staging texture");
+			return;
+		}
+		Debug("Success in creating staging texture");
+
+		// copy the texture to a staging resource
+		d3dContext->CopyResource(textureOut, tex);
+		Debug("Success in copying texture");
+
+		// now, map the staging resource
+		D3D11_MAPPED_SUBRESOURCE mapInfo;
+		hr = d3dContext->Map(
+				textureOut,
+				0,
+				D3D11_MAP_READ,
+				0,
+				&mapInfo);
+		if (FAILED(hr)) {
+			Debug("Failed to map staging texture: %ld", hr);
+			return;
+		}
+		Debug("Success in mapping staging texture");
+
+		// stb_image doesnt work, ppm raw bitches
+		std::ofstream ofs;
+		ofs.open(filename.c_str());
+		Debug("Success in opening output file");
+		ofs << "P3\n";
+		int width = descOut.Width, height = descOut.Height;
+		ofs << width << " " << height << "\n255\n";
+		Debug("Success in writing metadata, width=%d, height=%d", width, height);
+
+		for(int y = 0; y < height/2; y++) {
+			for(int x = 0; x < width/2; x++) {
+				for(int c = 0; c < 3; c++) {
+					ofs << (int)(((unsigned char*)mapInfo.pData)[y*height*4 + x*4+c]) << " ";
+				}
+			}
+			ofs << "\n";
+			if(y % 25 == 0) ofs.flush();
+		}
+		ofs.close();
+
+		Debug("Success in dumping texture file %s", filename.c_str());
+
+		d3dContext->Unmap(textureOut, 0);
+	}*/
 
 	// This can go away, but is useful to see it as a separate packet on the gpu in traces.
 	m_pD3DRender->GetContext()->Flush();

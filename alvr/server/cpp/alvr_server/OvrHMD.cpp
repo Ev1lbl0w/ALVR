@@ -120,6 +120,11 @@ OvrHmd::OvrHmd()
 			m_D3DRender->Shutdown();
 			m_D3DRender.reset();
 		}
+		if(m_D3DDedicatedRender)
+		{
+			m_D3DDedicatedRender->Shutdown();
+			m_D3DDedicatedRender.reset();
+		}
 #endif
 	}
 
@@ -188,12 +193,13 @@ vr::EVRInitError OvrHmd::Activate(vr::TrackedDeviceIndex_t unObjectId)
 			{
 #ifdef _WIN32
 				m_D3DRender = std::make_shared<CD3DRender>();
+				m_D3DDedicatedRender = std::make_shared<CD3DRender>();
 
 				// Use the same adapter as vrcompositor uses. If another adapter is used, vrcompositor says "failed to open shared texture" and then crashes.
 				// It seems vrcompositor selects always(?) first adapter. vrcompositor may use Intel iGPU when user sets it as primary adapter. I don't know what happens on laptop which support optimus.
 				// Prop_GraphicsAdapterLuid_Uint64 is only for redirect display and is ignored on direct mode driver. So we can't specify an adapter for vrcompositor.
 				// m_nAdapterIndex is set 0 on the launcher.
-				if (!m_D3DRender->Initialize(Settings::Instance().m_nAdapterIndex))
+				if (!m_D3DRender->Initialize(1) || !m_D3DDedicatedRender->Initialize(0))
 				{
 					Error("Could not create graphics device for adapter %d.  Requires a minimum of two graphics cards.\n", Settings::Instance().m_nAdapterIndex);
 					return vr::VRInitError_Driver_Failed;
@@ -217,7 +223,7 @@ vr::EVRInitError OvrHmd::Activate(vr::TrackedDeviceIndex_t unObjectId)
 
 				m_displayComponent = std::make_shared<OvrDisplayComponent>();
 #ifdef _WIN32
-				m_directModeComponent = std::make_shared<OvrDirectModeComponent>(m_D3DRender, m_poseHistory);
+				m_directModeComponent = std::make_shared<OvrDirectModeComponent>(m_D3DDedicatedRender, m_D3DRender, m_poseHistory);
 #endif
 			}
 
@@ -310,7 +316,7 @@ vr::EVRInitError OvrHmd::Activate(vr::TrackedDeviceIndex_t unObjectId)
 			// set prox sensor
 			vr::VRDriverInput()->UpdateBooleanComponent(m_proximity, info.mounted == 1, 0.0);
 
-			Debug("GetPose: Rotation=(%f, %f, %f, %f) Position=(%f, %f, %f)\n",
+			/*Debug("GetPose: Rotation=(%f, %f, %f, %f) Position=(%f, %f, %f)\n",
 				pose.qRotation.x,
 				pose.qRotation.y,
 				pose.qRotation.z,
@@ -318,7 +324,7 @@ vr::EVRInitError OvrHmd::Activate(vr::TrackedDeviceIndex_t unObjectId)
 				pose.vecPosition[0],
 				pose.vecPosition[1],
 				pose.vecPosition[2]
-			);
+			);*/
 
 			pose.poseTimeOffset = m_Listener->GetPoseTimeOffset();
 		}
@@ -385,7 +391,7 @@ vr::EVRInitError OvrHmd::Activate(vr::TrackedDeviceIndex_t unObjectId)
 #ifdef _WIN32
 			m_encoder = std::make_shared<CEncoder>();
 			try {
-				m_encoder->Initialize(m_D3DRender, m_Listener);
+				m_encoder->Initialize(m_D3DRender, m_D3DDedicatedRender, m_Listener);
 			}
 			catch (Exception e) {
 				Error("Your GPU does not meet the requirements for video encoding. %s %s\n%s %s\n",

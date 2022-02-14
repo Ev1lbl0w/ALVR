@@ -47,7 +47,7 @@ public:
 	virtual ~FrameRender();
 
 	bool Startup();
-	bool RenderFrame(ID3D11Texture2D *pTexture[][2], vr::VRTextureBounds_t bounds[][2], int layerCount, bool recentering, const std::string& message, const std::string& debugText);
+	bool RenderFrame(HANDLE pTexture[][2], vr::VRTextureBounds_t bounds[][2], int layerCount, bool recentering, const std::string& message, const std::string& debugText);
 	void GetEncodingResolution(uint32_t *width, uint32_t *height);
 
 	ComPtr<ID3D11Texture2D> GetTexture();
@@ -77,6 +77,7 @@ private:
 	ComPtr<ID3D11ShaderResourceView> m_messageBGResourceView;
 
 	uint64_t m_frameIndex2;
+	int counter = 0;
 	struct SimpleVertex
 	{
 		DirectX::XMFLOAT3 Pos;

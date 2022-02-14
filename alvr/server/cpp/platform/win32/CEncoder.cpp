@@ -19,14 +19,15 @@
 			}
 		}
 
-		void CEncoder::Initialize(std::shared_ptr<CD3DRender> d3dRender, std::shared_ptr<ClientConnection> listener) {
-			m_FrameRender = std::make_shared<FrameRender>(d3dRender);
+		void CEncoder::Initialize(std::shared_ptr<CD3DRender> d3dRender, std::shared_ptr<CD3DRender> d3dDedicatedRender, std::shared_ptr<ClientConnection> listener) {
+			m_FrameRender = std::make_shared<FrameRender>(d3dDedicatedRender);
 			m_FrameRender->Startup();
 			uint32_t encoderWidth, encoderHeight;
 			m_FrameRender->GetEncodingResolution(&encoderWidth, &encoderHeight);
 
 			Exception vceException;
 			Exception nvencException;
+			Exception swException;
 			try {
 				Debug("Try to use VideoEncoderVCE.\n");
 				m_videoEncoder = std::make_shared<VideoEncoderVCE>(d3dRender, listener, encoderWidth, encoderHeight);
@@ -45,10 +46,19 @@
 			catch (Exception e) {
 				nvencException = e;
 			}
-			throw MakeException("All VideoEncoder are not available. VCE: %s, NVENC: %s", vceException.what(), nvencException.what());
+			try {
+				Debug("Try to use VideoEncoderSW.\n");
+				m_videoEncoder = std::make_shared<VideoEncoderSW>(d3dRender, listener, encoderWidth, encoderHeight);
+				m_videoEncoder->Initialize();
+				return;
+			}
+			catch (Exception e) {
+				swException = e;
+			}
+			throw MakeException("All VideoEncoder are not available. VCE: %s, NVENC: %s, SW: %s", vceException.what(), nvencException.what(), swException.what());
 		}
 
-		bool CEncoder::CopyToStaging(ID3D11Texture2D *pTexture[][2], vr::VRTextureBounds_t bounds[][2], int layerCount, bool recentering
+		bool CEncoder::CopyToStaging(HANDLE pTexture[][2], vr::VRTextureBounds_t bounds[][2], int layerCount, bool recentering
 			, uint64_t presentationTime, uint64_t frameIndex, uint64_t clientTime, const std::string& message, const std::string& debugText)
 		{
 			m_presentationTime = presentationTime;

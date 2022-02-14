@@ -15,6 +15,7 @@
 #include "VideoEncoder.h"
 #include "VideoEncoderNVENC.h"
 #include "VideoEncoderVCE.h"
+#include "VideoEncoderSW.h"
 #include "alvr_server/IDRScheduler.h"
 
 
@@ -31,9 +32,9 @@
 		CEncoder();
 		~CEncoder();
 
-		void Initialize(std::shared_ptr<CD3DRender> d3dRender, std::shared_ptr<ClientConnection> listener);
+		void Initialize(std::shared_ptr<CD3DRender> d3dRender, std::shared_ptr<CD3DRender> d3dDedicatedRender, std::shared_ptr<ClientConnection> listener);
 
-		bool CopyToStaging(ID3D11Texture2D *pTexture[][2], vr::VRTextureBounds_t bounds[][2], int layerCount, bool recentering
+		bool CopyToStaging(HANDLE pTexture[][2], vr::VRTextureBounds_t bounds[][2], int layerCount, bool recentering
 			, uint64_t presentationTime, uint64_t frameIndex, uint64_t clientTime, const std::string& message, const std::string& debugText);
 
 		virtual void Run();

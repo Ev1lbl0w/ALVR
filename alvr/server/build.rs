@@ -6,7 +6,7 @@ use std::{env, path::PathBuf};
 // as it adds definitions and include flags
 // but AFTER the build in other cases because linker flags must appear after.
 #[cfg(target_os = "linux")]
-fn do_ffmpeg_pkg_config(build: &mut cc::Build) {
+fn do_ffmpeg_linux_pkg_config(build: &mut cc::Build) {
     let ffmpeg_path = env::var("CARGO_MANIFEST_DIR").unwrap() + "/../../deps/linux/FFmpeg-n4.4/";
 
     #[cfg(feature = "bundled_ffmpeg")]
@@ -49,6 +49,20 @@ fn do_ffmpeg_pkg_config(build: &mut cc::Build) {
 
         println!("cargo:rustc-link-lib=dl");
     }
+}
+
+#[cfg(windows)]
+fn do_ffmpeg_windows_pkg_config(build: &mut cc::Build, cpp_dir: &PathBuf) {
+    build.include("cpp/ffmpeg/include");
+
+    println!(
+        "cargo:rustc-link-search=native={}/ffmpeg/lib",
+        cpp_dir.to_string_lossy()
+    );
+    println!("cargo:rustc-link-lib=avcodec");
+    println!("cargo:rustc-link-lib=avutil");
+    println!("cargo:rustc-link-lib=avfilter");
+    println!("cargo:rustc-link-lib=swscale");
 }
 
 fn main() {
@@ -101,20 +115,25 @@ fn main() {
         .define("_WINSOCKAPI_", None)
         .define("_MBCS", None)
         .define("_MT", None);
-
+    
+        
     #[cfg(target_os = "macos")]
     build.define("__APPLE__", None);
-
-    // #[cfg(debug_assertions)]
-    // build.define("ALVR_DEBUG_LOG", None);
-
+    
+    #[cfg(debug_assertions)]
+    build.define("ALVR_DEBUG_LOG", None);
+    
     #[cfg(all(target_os = "linux", feature = "bundled_ffmpeg"))]
-    do_ffmpeg_pkg_config(&mut build);
+    do_ffmpeg_linux_pkg_config(&mut build);
+    
+    #[cfg(windows)]
+    do_ffmpeg_windows_pkg_config(&mut build, &cpp_dir);
 
     build.compile("bindings");
 
     #[cfg(all(target_os = "linux", not(feature = "bundled_ffmpeg")))]
-    do_ffmpeg_pkg_config(&mut build);
+    do_ffmpeg_linux_pkg_config(&mut build);
+
 
     bindgen::builder()
         .clang_arg("-xc++")

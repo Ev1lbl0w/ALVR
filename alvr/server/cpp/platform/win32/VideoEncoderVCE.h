@@ -63,6 +63,7 @@ public:
 
 	void Transmit(ID3D11Texture2D *pTexture, uint64_t presentationTime, uint64_t frameIndex, uint64_t frameIndex2, uint64_t clientTime, bool insertIDR);
 	void Receive(amf::AMFData *data);
+	void SaveTextureToBmp(PCWSTR filename, ID3D11Texture2D* tex);
 private:
 	static const amf::AMF_SURFACE_FORMAT CONVERTER_INPUT_FORMAT = amf::AMF_SURFACE_RGBA;
 	static const amf::AMF_SURFACE_FORMAT ENCODER_INPUT_FORMAT = amf::AMF_SURFACE_RGBA;// amf::AMF_SURFACE_NV12;
@@ -87,6 +88,8 @@ private:
 	int m_renderWidth;
 	int m_renderHeight;
 	int m_bitrateInMBits;
+
+	int m_currFrame = 0;
 
 	void ApplyFrameProperties(const amf::AMFSurfacePtr &surface, bool insertIDR);
 	void SkipAUD(char **buffer, int *length);

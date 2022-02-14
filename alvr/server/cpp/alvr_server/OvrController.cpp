@@ -319,7 +319,7 @@ void *OvrController::GetComponent(const char *pchComponentNameAndVersion)
  vr::DriverPose_t OvrController::GetPose()
 {
 
-	 Debug("Controller%d getPose %lf %lf %lf\n", m_index, m_pose.vecPosition[0], m_pose.vecPosition[1], m_pose.vecPosition[2]);
+	//Debug("Controller%d getPose %lf %lf %lf\n", m_index, m_pose.vecPosition[0], m_pose.vecPosition[1], m_pose.vecPosition[2]);
 
 	return m_pose;
 }
@@ -469,7 +469,7 @@ bool OvrController::onPoseUpdate(int controllerIndex, const TrackingInfo &info) 
 	*/
 	
 
-	Debug("CONTROLLER %d %f,%f,%f - %f,%f,%f\n", m_index, m_pose.vecVelocity[0], m_pose.vecVelocity[1], m_pose.vecVelocity[2], m_pose.vecAngularVelocity[0], m_pose.vecAngularVelocity[1], m_pose.vecAngularVelocity[2]);
+	//Debug("CONTROLLER %d %f,%f,%f - %f,%f,%f\n", m_index, m_pose.vecVelocity[0], m_pose.vecVelocity[1], m_pose.vecVelocity[2], m_pose.vecAngularVelocity[0], m_pose.vecAngularVelocity[1], m_pose.vecAngularVelocity[2]);
 	
 	
 
@@ -504,7 +504,7 @@ bool OvrController::onPoseUpdate(int controllerIndex, const TrackingInfo &info) 
 	   
 
 	auto& c = info.controller[controllerIndex];
-	Debug("Controller%d %d %lu: %08llX %08X %f:%f\n", m_index,controllerIndex, (unsigned long)m_unObjectId, c.buttons, c.flags, c.trackpadPosition.x, c.trackpadPosition.y);
+	//Debug("Controller%d %d %lu: %08llX %08X %f:%f\n", m_index,controllerIndex, (unsigned long)m_unObjectId, c.buttons, c.flags, c.trackpadPosition.x, c.trackpadPosition.y);
 
 	if (c.flags & TrackingInfo::Controller::FLAG_CONTROLLER_OCULUS_HAND) {
 		//m_pose.poseTimeOffset = 0.;

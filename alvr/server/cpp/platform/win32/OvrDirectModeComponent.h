@@ -11,7 +11,7 @@
 class OvrDirectModeComponent : public vr::IVRDriverDirectModeComponent
 {
 public:
-	OvrDirectModeComponent(std::shared_ptr<CD3DRender> pD3DRender, std::shared_ptr<PoseHistory> poseHistory);
+	OvrDirectModeComponent(std::shared_ptr<CD3DRender> pD3DRender, std::shared_ptr<CD3DRender> pD3DIntegratedRender, std::shared_ptr<PoseHistory> poseHistory);
 
 	void SetEncoder(std::shared_ptr<CEncoder> pEncoder);
 
@@ -37,10 +37,11 @@ public:
 	void CopyTexture(uint32_t layerCount);
 
 private:
-	std::shared_ptr<CD3DRender> m_pD3DRender;
+	std::shared_ptr<CD3DRender> m_pD3DRender, m_pD3DIRender;
 	std::shared_ptr<CEncoder> m_pEncoder;
 	std::shared_ptr<ClientConnection> m_Listener;
 	std::shared_ptr<PoseHistory> m_poseHistory;
+	int counter = 0;
 
 	// Resource for each process
 	struct ProcessResource {
@@ -49,6 +50,7 @@ private:
 		uint32_t pid;
 	};
 	std::map<HANDLE, std::pair<ProcessResource *, int> > m_handleMap;
+	std::vector<std::pair<ProcessResource *, int>> m_handleMapI;
 
 	static const int MAX_LAYERS = 10;
 	int m_submitLayer;

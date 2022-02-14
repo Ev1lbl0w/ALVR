@@ -82,6 +82,6 @@ vr::DistortionCoordinates_t OvrDisplayComponent::ComputeDistortion(vr::EVREye /*
 	coordinates.rfGreen[1] = fV;
 	coordinates.rfRed[0] = fU;
 	coordinates.rfRed[1] = fV;
-	Debug("ComputeDistortion %f,%f\n", fU, fV);
+	//Debug("ComputeDistortion %f,%f\n", fU, fV);
 	return coordinates;
 }
